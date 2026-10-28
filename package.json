@@ -1,0 +1,14 @@
+{
+  "name": "otlapos",
+  "version": "1.0.0",
+  "description": "Öt lapos römi – 5-card rummy for two players, online",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": { "ws": "^8.18.0" }
+}
