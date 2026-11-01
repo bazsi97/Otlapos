@@ -20,7 +20,7 @@ tablet and phone. English / Hungarian toggle in the corner.
 | **Terc** | 3 or 4 cards of the same number, all different suits. |
 | **Row** | 3–13 consecutive cards of one suit. Ace is low (A‑2‑3) *or* high (Q‑K‑A); no wrap-around (K‑A‑2). |
 | Jokers | Wild. Every meld needs at least 2 real cards. |
-| Forced play | If you *can* play, you *must* – the server refuses a draw and pulses the cards that belong to a legal play. (Room option; off = honour system.) |
+| Forced play | You **must play only if your own hand holds a terc or row made of real cards** (no jokers needed). Having a joker that would make a play possible, or being able to add to / rearrange the table, never forces you – you may always draw. The server refuses the draw and pulses the cards. (Room option; off = honour system.) |
 | Opening | No 51-point rule, values don't matter. Your first meld must be made **only from your own hand**. |
 | After opening | The **whole table is yours**: borrow cards, split/merge rows, pull a joker out and use it elsewhere – as long as when you press **Done** every group on the table is a valid terc or row. Cards on the table never go back to a hand. |
 | Winning | First to empty their hand. Rematch alternates who starts. |
@@ -40,10 +40,11 @@ draw ends the turn.
 
 ## How "must play" is enforced
 
-`canPlay()` in `public/shared/rules.js` is an exact solver: can the table cards **plus at least one hand card** be
-re-partitioned into valid terces/rows? (Memoised search over the 52 distinct faces; every table card is
-mandatory, every hand card optional, jokers fully wild.) If it hits its node budget it answers "unknown" and
-lets the draw through rather than blocking a player wrongly.
+On a draw, the server looks at your hand with the jokers removed and asks `canPlay()` (in
+`public/shared/rules.js`) whether those cards contain a terc or row. If so the draw is refused and those
+cards are returned as the hint. `canPlay()` itself is a more general exact solver (it can also re-partition the
+whole table, jokers included) – it's currently only used on the hand, but it's there if you ever want a
+stricter variant.
 
 ## Hosting it so your dad can join
 

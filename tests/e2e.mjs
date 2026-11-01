@@ -110,22 +110,25 @@ await waitState(A, () => window.__otlapos.state.srv.phase === 'playing');
 assert.equal(await A.locator('#hand .card').count(), 5);
 console.log('rematch OK');
 
-// ---------- scenario 5: strict mode refuses a draw when a play exists; rearranging with a joker ----------
+// ---------- scenario 5: strict mode refuses a draw only while you hold a natural terc/row;
+//            then a joker is liberated from a row and re-used in a terc ----------
 const tbl = Array.from({ length: 49 }, () => []);
 tbl[0] = [c(SP, 9), c(SP, 10), 104]; // 9♠ 10♠ JOKER
 tbl[1] = [c(HE, 4), c(DI, 4), c(CL, 4)]; // terc of 4s
 const turnA = await A.evaluate(() => window.__otlapos.state.srv.turn === window.__otlapos.state.srv.you);
 const mover = turnA ? A : B;
-await debugSet(mover, {
-  turn: turnA ? 0 : 1, opened: [true, true], table: tbl,
-  hands: turnA ? [[c(SP, 11), c(CL, 13), c(HE, 1), c(DI, 2), c(CL, 9)], null] : [null, [c(SP, 11), c(CL, 13), c(HE, 1), c(DI, 2), c(CL, 9)]],
-});
+const setHand = (h) => (turnA ? [h, null] : [null, h]);
+// 5 6 7 of diamonds in hand -> must play
+await debugSet(mover, { turn: turnA ? 0 : 1, opened: [true, true], table: tbl, hands: setHand([c(DI, 5), c(DI, 6), c(DI, 7), c(CL, 13), c(HE, 1)]) });
 await waitState(mover, () => window.__otlapos.state.srv.hand.length === 5 && window.__otlapos.state.draft && window.__otlapos.state.srv.table[1].length === 3);
-await mover.screenshot({ path: `${SHOTS}/shot-3-joker-table.png` });
 await mover.click('#drawBtn');
 await mover.waitForSelector('.card.hint');
-assert.match(await mover.textContent('#status'), /can play|Tudsz/i);
-// now actually do it: J♠ replaces the joker's spot; joker moves into the 4s terc
+assert.match(await mover.textContent('#status'), /terc or row|tercet/i);
+// J♠ in hand: playable via the table (extend/rearrange) but nothing forced -> draw is allowed
+await debugSet(mover, { turn: turnA ? 0 : 1, hands: setHand([c(SP, 11), c(CL, 13), c(HE, 1), c(DI, 2), c(CL, 9)]) });
+await waitState(mover, () => window.__otlapos.state.srv.hand.length === 5 && window.__otlapos.state.draft);
+await mover.screenshot({ path: `${SHOTS}/shot-3-joker-table.png` });
+// do the joker rearrangement anyway: J♠ replaces the joker, joker moves into the 4s terc
 await dragCard(mover, c(SP, 11), 0);
 await dragCard(mover, 104, 1);
 await mover.waitForSelector('#board .cell[data-cell="1"].valid');

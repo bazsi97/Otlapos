@@ -47,7 +47,7 @@ test('done: cannot cheat with cards you do not hold or by pulling table cards ba
   assert.equal(r.players[0].hand.length, 5);
 });
 
-test('draw: allowed with no play, refused (with hint) in strict mode when a play exists', () => {
+test('draw: refused only when the hand itself holds a joker-free terc/row', () => {
   const r = room({ strict: true });
   r.players[0].hand = [c(HE, 7), c(HE, 8), c(HE, 9), c(CL, 5), c(DI, 13)];
   const refused = playDraw(r, 0);
@@ -61,6 +61,20 @@ test('draw: allowed with no play, refused (with hint) in strict mode when a play
   assert.equal(r.players[0].hand.length, 6);
   assert.equal(r.deck.length, deckBefore - 1);
   assert.equal(r.turn, 1);
+});
+
+test('draw: a joker never forces you to play', () => {
+  const r = room({ strict: true });
+  r.players[0].hand = [c(HE, 7), c(HE, 8), 104, c(CL, 5), c(DI, 13)]; // 7♥ 8♥ JOKER would be a row
+  assert.deepEqual(playDraw(r, 0), { ok: true });
+});
+
+test('draw: being able to extend / rearrange the table never forces you to play', () => {
+  const r = room({ strict: true });
+  r.table[0] = [c(HE, 5), c(HE, 6), c(HE, 7)];
+  r.players[0].opened = true;
+  r.players[0].hand = [c(HE, 8), c(SP, 1), c(DI, 2), c(CL, 9), c(SP, 12)]; // 8♥ would extend the row
+  assert.deepEqual(playDraw(r, 0), { ok: true });
 });
 
 test('draw: non-strict rooms never refuse', () => {

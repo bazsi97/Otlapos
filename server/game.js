@@ -1,5 +1,5 @@
 // Game state + turn logic for one room. No networking in here.
-import { HAND_SIZE, checkTurn, canPlay, makeDeck, shuffle } from '../public/shared/rules.js';
+import { HAND_SIZE, checkTurn, canPlay, cardInfo, makeDeck, shuffle } from '../public/shared/rules.js';
 
 export const ROWS = 7;
 export const COLS = 7;
@@ -89,15 +89,18 @@ export function playDone(room, idx, proposed) {
 }
 
 /**
- * Player `idx` draws instead of playing. In strict mode this is refused when a play exists
- * (and returns the hand cards that take part in one as a hint).
+ * Player `idx` draws instead of playing. In strict mode this is refused when the hand itself
+ * contains a terc or row without jokers (returns those cards as a hint).
  */
 export function playDraw(room, idx) {
   if (room.phase !== 'playing') return { ok: false, code: 'notPlaying' };
   if (room.turn !== idx) return { ok: false, code: 'notYourTurn' };
   const p = room.players[idx];
   if (room.strict) {
-    const r = canPlay({ table: room.table.flat(), hand: p.hand, opened: p.opened });
+    // You only HAVE to play when your own hand holds a terc or row of real cards.
+    // Jokers and adding to / rearranging the table never force you.
+    const naturals = p.hand.filter((id) => !cardInfo(id).joker);
+    const r = canPlay({ table: [], hand: naturals, opened: false });
     if (r.can === true) return { ok: false, code: 'mustPlay', hint: r.cards };
   }
   if (room.deck.length > 0) p.hand.push(room.deck.pop());
