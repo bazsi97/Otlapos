@@ -104,3 +104,16 @@ test('drafts are only accepted from the player whose turn it is', () => {
   assert.ok(viewFor(r, 1).draft, 'opponent sees the draft');
   assert.equal(viewFor(r, 0).draft, null);
 });
+
+test('drawn cards are flagged for the drawer until they lay something down', () => {
+  const r = room({ strict: false });
+  r.players[0].hand = [c(HE, 7), c(HE, 8), c(HE, 9), c(CL, 5), c(DI, 13)];
+  playDraw(r, 0);
+  const drawnCard = r.players[0].hand[5];
+  assert.deepEqual(viewFor(r, 0).drawn, [drawnCard]);
+  assert.deepEqual(viewFor(r, 1).drawn, [], 'opponent has nothing flagged');
+  r.turn = 0; // pretend the opponent has played
+  const p = [[c(HE, 7), c(HE, 8), c(HE, 9)]];
+  assert.ok(playDone(r, 0, p).ok);
+  assert.deepEqual(viewFor(r, 0).drawn, []);
+});

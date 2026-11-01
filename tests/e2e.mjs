@@ -87,6 +87,7 @@ console.log('terc via drag OK');
 await B.click('#drawBtn');
 await waitState(B, () => window.__otlapos.state.srv.turn === 0 && window.__otlapos.state.srv.hand.length === 6);
 assert.equal(await B.locator('#hand .card').count(), 6);
+assert.equal(await B.locator('#hand .card.drawn').count(), 1, 'the drawn card is highlighted');
 console.log('draw OK');
 
 // ---------- scenario 3: A is opened; tap-select + tap-slot to extend with 7♣ and win ----------

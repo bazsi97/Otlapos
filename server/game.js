@@ -25,7 +25,7 @@ export const emptyTable = () => [];
 const compact = (table) => table.filter((c) => c.length > 0);
 
 export function addPlayer(room, name, token) {
-  const p = { name, token, hand: [], opened: false, wins: 0, ws: null };
+  const p = { name, token, hand: [], opened: false, wins: 0, ws: null, newCards: [] };
   room.players.push(p);
   return room.players.length - 1;
 }
@@ -36,6 +36,7 @@ export function startRound(room, rnd = Math.random) {
   for (const p of room.players) {
     p.hand = room.deck.splice(0, HAND_SIZE);
     p.opened = false;
+    p.newCards = [];
   }
   room.turn = room.startIdx;
   room.turnNo = 1;
@@ -68,6 +69,7 @@ export function playDone(room, idx, proposed) {
 
   const placed = new Set(res.placed);
   p.hand = p.hand.filter((id) => !placed.has(id));
+  p.newCards = []; // the highlight on drawn cards ends once you lay something down
   p.opened = true;
   room.table = compact(proposed).map((cell) => cell.slice());
   room.fresh = res.placed;
@@ -101,7 +103,11 @@ export function playDraw(room, idx) {
     const r = canPlay({ table: [], hand: naturals, opened: false });
     if (r.can === true) return { ok: false, code: 'mustPlay', hint: r.cards };
   }
-  if (room.deck.length > 0) p.hand.push(room.deck.pop());
+  if (room.deck.length > 0) {
+    const card = room.deck.pop();
+    p.hand.push(card);
+    p.newCards = [...(p.newCards ?? []), card];
+  }
   pushLog(room, { k: 'drew', p: idx });
   endTurn(room);
   return { ok: true };
@@ -137,6 +143,7 @@ export function viewFor(room, idx) {
     rematch: room.rematch,
     log: room.log.slice(-6),
     hand: room.players[idx]?.hand ?? [],
+    drawn: room.players[idx]?.newCards ?? [], // cards drawn since you last played, highlighted in your hand
     players: room.players.map((p) => ({
       name: p.name,
       handCount: p.hand.length,

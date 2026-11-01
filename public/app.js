@@ -376,8 +376,9 @@ function render() {
 
   // hand
   const placed = new Set(mine ? placedIds() : []);
+  const drawn = new Set(s.drawn);
   const hand = s.hand.filter((id) => !placed.has(id)).sort((x, y) => sortKey[S.sort](x) - sortKey[S.sort](y));
-  $('#hand').innerHTML = hand.map((id) => cardHTML(id, { extra: `${S.sel.has(id) ? 'sel' : ''} ${S.hint.has(id) ? 'hint' : ''}` })).join('');
+  $('#hand').innerHTML = hand.map((id) => cardHTML(id, { extra: `${S.sel.has(id) ? 'sel' : ''} ${S.hint.has(id) ? 'hint' : ''} ${drawn.has(id) ? 'drawn' : ''}` })).join('');
 
   // status + buttons
   renderStatus(mine, placed.size);
