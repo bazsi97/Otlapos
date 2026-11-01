@@ -7,8 +7,17 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "cf:dev": "wrangler dev",
+    "cf:deploy": "wrangler deploy"
   },
-  "engines": { "node": ">=20" },
-  "dependencies": { "ws": "^8.18.0" }
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
 }

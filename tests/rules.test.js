@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { analyzeMeld, checkTurn, canPlay, partition, cardInfo, makeDeck, shuffle } from '../shared/rules.js';
+import { analyzeMeld, checkTurn, canPlay, partition, cardInfo, makeDeck, shuffle } from '../public/shared/rules.js';
 
 // helpers: suit 0♠ 1♥ 2♦ 3♣ ; deck copy 0/1 ; rank 1..13 ; jokers 104..109
 const c = (suit, rank, copy = 0) => copy * 52 + suit * 13 + (rank - 1);

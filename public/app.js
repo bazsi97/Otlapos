@@ -26,7 +26,7 @@ const STR = {
     err_missingCard: 'Cards on the table can’t go back to your hand.',
     err_mustPlay: 'You can play! The pulsing cards are part of a legal play — no drawing.',
     err_notYourTurn: 'It’s not your turn.',
-    err_noRoom: 'No such room.', err_roomFull: 'That room is full.', err_server: 'Something went wrong.',
+    err_noRoom: 'No such room.', err_roomFull: 'That room is full.', err_server: 'Something went wrong.', err_taken: 'Couldn’t create a room, try again.',
     err_unknownCard: 'Out of sync — resetting your turn.', err_shape: 'Out of sync — resetting your turn.', err_dupCard: 'Out of sync — resetting your turn.',
     logStart: '{n} starts', logPlayed: '{n} played {c} card(s)', logDrew: '{n} drew a card', logWon: '{n} ran out of cards',
   },
@@ -50,7 +50,7 @@ const STR = {
     err_missingCard: 'Az asztalon lévő lap nem mehet vissza a kezedbe.',
     err_mustPlay: 'Tudsz lerakni! A pulzáló lapok egy szabályos lerakás részei — nem húzhatsz.',
     err_notYourTurn: 'Nem te jössz.',
-    err_noRoom: 'Nincs ilyen szoba.', err_roomFull: 'A szoba megtelt.', err_server: 'Hiba történt.',
+    err_noRoom: 'Nincs ilyen szoba.', err_roomFull: 'A szoba megtelt.', err_server: 'Hiba történt.', err_taken: 'Nem sikerült szobát létrehozni, próbáld újra.',
     err_unknownCard: 'Szinkronhiba — a kör visszaáll.', err_shape: 'Szinkronhiba — a kör visszaáll.', err_dupCard: 'Szinkronhiba — a kör visszaáll.',
     logStart: '{n} kezd', logPlayed: '{n} lerakott {c} lapot', logDrew: '{n} húzott egy lapot', logWon: '{n}-nek elfogyott a lapja',
   },
@@ -110,24 +110,48 @@ function send(msg) {
   if (S.ws && S.ws.readyState === 1) S.ws.send(JSON.stringify(msg));
 }
 
-function connect() {
+// One WebSocket per room (/ws?room=CODE). `first` is sent as soon as the socket opens
+// (create / join); with a saved session we rejoin our seat instead.
+function open(code, first = null) {
+  const old = S.ws;
+  S.ws = null;
+  try { old?.close(); } catch { /* ignore */ }
+  S.wantCode = code;
+  S.first = first;
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const ws = new WebSocket(`${proto}://${location.host}/ws`);
+  const ws = new WebSocket(`${proto}://${location.host}/ws?room=${encodeURIComponent(code)}`);
   S.ws = ws;
   ws.onopen = () => {
     S.connected = true;
-    if (S.session) send({ t: 'rejoin', code: S.session.code, token: S.session.token });
+    if (S.first) { send(S.first); S.first = null; }
+    else if (S.session && S.session.code === code) send({ t: 'rejoin', code, token: S.session.token });
+    clearInterval(S.pingTimer);
+    S.pingTimer = setInterval(() => { if (ws.readyState === 1) ws.send('ping'); }, 25000);
     renderChrome();
   };
   ws.onmessage = (e) => {
+    if (e.data === 'pong') return;
     try { handle(JSON.parse(e.data)); } catch (err) { console.error(err); }
   };
   ws.onclose = () => {
     if (S.ws !== ws) return;
     S.connected = false;
+    clearInterval(S.pingTimer);
     renderChrome();
-    setTimeout(connect, 1500);
+    if (S.session) setTimeout(() => { if (S.ws === ws) open(S.session.code); }, 1500);
   };
+}
+
+function randomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  return Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+function createRoom(tries = 0) {
+  S.createTries = tries;
+  const code = randomCode();
+  S.lastCreate = { t: 'create', code, name: getName(), strict: $('#strictInput').checked };
+  open(code, S.lastCreate);
 }
 
 function handle(m) {
@@ -144,17 +168,23 @@ function handle(m) {
         S.hint = new Set(m.hint || []);
         setTimeout(() => { S.hint = new Set(); render(); }, 7000);
       }
-      if (['unknownCard', 'shape', 'dupCard', 'missingCard'].includes(m.code) && S.srv) {
-        if (m.code !== 'missingCard') resetDraft();
-      }
+      if (['unknownCard', 'shape', 'dupCard'].includes(m.code) && S.srv) resetDraft();
       flash(t('err_' + m.code), 'bad', 6000);
       render();
       break;
     case 'error':
+      if (m.code === 'taken' && S.lastCreate && S.createTries < 6) {
+        const code = randomCode();
+        S.lastCreate = { ...S.lastCreate, code };
+        S.createTries++;
+        open(code, S.lastCreate);
+        break;
+      }
       if (m.fatal) {
         S.session = null;
         S.srv = null;
         store.del('session');
+        try { S.ws?.close(); } catch { /* ignore */ }
       }
       $('#lobbyErr').textContent = t('err_' + m.code);
       showScreen();
@@ -245,7 +275,7 @@ function showScreen() {
 }
 
 function renderChrome() {
-  $('#conn').classList.toggle('hidden', S.connected);
+  $('#conn').classList.toggle('hidden', S.connected || !S.session);
   $('#langBtn').textContent = $('#langBtn2').textContent = lang === 'en' ? 'HU' : 'EN';
   document.documentElement.lang = lang;
   document.querySelectorAll('[data-i18n]').forEach((el) => (el.textContent = t(el.dataset.i18n)));
@@ -498,7 +528,11 @@ function leave() {
   S.srv = null;
   S.draft = null;
   history.replaceState(null, '', '/');
-  try { S.ws.close(); } catch { /* ignore */ }
+  const ws = S.ws;
+  S.ws = null;
+  S.connected = false;
+  clearInterval(S.pingTimer);
+  try { ws?.close(); } catch { /* ignore */ }
   showScreen();
   renderChrome();
 }
@@ -513,8 +547,14 @@ $('#copyBtn').onclick = async () => {
 const nameInput = $('#nameInput');
 nameInput.value = store.get('name') || '';
 const getName = () => { const n = nameInput.value.trim(); store.set('name', n); return n; };
-$('#createBtn').onclick = () => { $('#lobbyErr').textContent = ''; send({ t: 'create', name: getName(), strict: $('#strictInput').checked }); };
-$('#joinBtn').onclick = () => { $('#lobbyErr').textContent = ''; send({ t: 'join', code: $('#codeInput').value, name: getName() }); };
+$('#createBtn').onclick = () => { $('#lobbyErr').textContent = ''; createRoom(); };
+$('#joinBtn').onclick = () => {
+  $('#lobbyErr').textContent = '';
+  const code = $('#codeInput').value.trim().toUpperCase();
+  if (!/^[A-Z]{4}$/.test(code)) { $('#lobbyErr').textContent = t('err_noRoom'); return; }
+  S.lastCreate = null;
+  open(code, { t: 'join', code, name: getName() });
+};
 $('#codeInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#joinBtn').click(); });
 const urlRoom = new URLSearchParams(location.search).get('room');
 if (urlRoom) $('#codeInput').value = urlRoom.toUpperCase().slice(0, 4);
@@ -523,7 +563,7 @@ window.addEventListener('resize', layoutFans);
 
 renderChrome();
 showScreen();
-connect();
+if (S.session) open(S.session.code);
 
 // exposed for the e2e test only
 window.__otlapos = { get state() { return S; } };

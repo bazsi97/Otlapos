@@ -1,5 +1,5 @@
 // Game state + turn logic for one room. No networking in here.
-import { HAND_SIZE, checkTurn, canPlay, makeDeck, shuffle } from '../shared/rules.js';
+import { HAND_SIZE, checkTurn, canPlay, makeDeck, shuffle } from '../public/shared/rules.js';
 
 export const ROWS = 7;
 export const COLS = 7;

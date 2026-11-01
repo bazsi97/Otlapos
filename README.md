@@ -25,7 +25,7 @@ tablet and phone. English / Hungarian toggle in the corner.
 | After opening | The **whole table is yours**: borrow cards, split/merge rows, pull a joker out and use it elsewhere – as long as when you press **Done** every group on the table is a valid terc or row. Cards on the table never go back to a hand. |
 | Winning | First to empty their hand. Rematch alternates who starts. |
 
-Judgement calls where the rules were open (all one-liners in `shared/rules.js` / `server/game.js`
+Judgement calls where the rules were open (all one-liners in `public/shared/rules.js` / `server/game.js`
 if you play it differently): ace high+low, max 4 in a terc, ≥2 natural cards per meld,
 draw ends the turn.
 
@@ -40,20 +40,28 @@ draw ends the turn.
 
 ## How "must play" is enforced
 
-`canPlay()` in `shared/rules.js` is an exact solver: can the table cards **plus at least one hand card** be
+`canPlay()` in `public/shared/rules.js` is an exact solver: can the table cards **plus at least one hand card** be
 re-partitioned into valid terces/rows? (Memoised search over the 52 distinct faces; every table card is
 mandatory, every hand card optional, jokers fully wild.) If it hits its node budget it answers "unknown" and
 lets the draw through rather than blocking a player wrongly.
 
 ## Hosting it so your dad can join
 
-It's a single Node process that serves the page and the WebSocket on the same port. Easiest options:
+**Cloudflare (recommended).** A Worker serves the page and every room is a Durable Object that holds both
+WebSockets and the game state (persisted, so it survives restarts; idle rooms cost nothing). No sleeping, free plan is enough.
 
-* **Render / Railway / Fly.io**: new web service from this repo, build `npm install`, start `npm start`.
-  (Free tiers sleep when idle and keep rooms in memory only, so a restart drops running games.)
-* **Right now from your laptop**: `npm start`, then `npx cloudflared tunnel --url http://localhost:3000`
-  (or ngrok) and send him the https link.
-* Same Wi‑Fi: open `http://<your-laptop-ip>:3000` on his device.
+```bash
+npm install
+npx wrangler login      # once
+npm run cf:deploy       # -> https://otlapos.<your-subdomain>.workers.dev
+```
+
+Or in the dashboard: *Workers & Pages -> Create -> Import a repository*, pick this repo/branch, build command
+`npm install`, deploy command `npx wrangler deploy` (config is in `wrangler.jsonc`).
+`npm run cf:dev` runs the same thing locally.
+
+**Render** (`render.yaml`, plain Node server, rooms only in memory) or **your laptop**
+(`npm start` + `npx cloudflared tunnel --url http://localhost:3000`) also work.
 
 Players are re-attached after a refresh/reconnect via a token in `localStorage`.
 
