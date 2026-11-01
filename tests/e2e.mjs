@@ -52,7 +52,7 @@ await B.fill('#nameInput', 'Dad');
 await B.click('#joinBtn');
 await A.waitForSelector('#screen-game:not(.hidden)');
 await B.waitForSelector('#screen-game:not(.hidden)');
-assert.equal(await A.locator('#board .cell').count(), 49);
+assert.equal(await A.locator('#board .cell').count(), 1, 'a fresh table has exactly one slot');
 assert.equal(await A.locator('#hand .card').count(), 5);
 assert.equal(await B.locator('#hand .card').count(), 5);
 console.log('lobby + deal OK, room', code);
@@ -61,7 +61,7 @@ console.log('lobby + deal OK, room', code);
 await debugSet(A, {
   turn: 0,
   opened: [false, false],
-  table: Array.from({ length: 49 }, () => []),
+  table: [],
   hands: [[c(HE, 7), c(SP, 7), c(DI, 7), c(CL, 5), c(DI, 13)], [c(HE, 2), c(SP, 9), c(DI, 12), c(CL, 1), c(HE, 4)]],
 });
 await waitState(A, () => window.__otlapos.state.srv.turn === 0 && window.__otlapos.state.srv.hand.length === 5 && window.__otlapos.state.draft);
@@ -74,6 +74,7 @@ assert.equal(await A.locator('#doneBtn').isDisabled(), false);
 assert.equal((await A.textContent('#board .cell[data-cell="0"] .tag')).trim(), 'terc');
 // opponent sees the live draft
 await B.waitForSelector('#board .cell[data-cell="0"].valid');
+await A.waitForFunction(() => document.querySelectorAll('#board .cell').length === 2);
 await A.screenshot({ path: `${SHOTS}/shot-1-terc-ready.png` });
 await A.click('#doneBtn');
 await waitState(B, () => window.__otlapos.state.srv.turn === 1);
@@ -112,15 +113,16 @@ console.log('rematch OK');
 
 // ---------- scenario 5: strict mode refuses a draw only while you hold a natural terc/row;
 //            then a joker is liberated from a row and re-used in a terc ----------
-const tbl = Array.from({ length: 49 }, () => []);
-tbl[0] = [c(SP, 9), c(SP, 10), 104]; // 9♠ 10♠ JOKER
-tbl[1] = [c(HE, 4), c(DI, 4), c(CL, 4)]; // terc of 4s
+const tbl = [
+  [c(SP, 9), c(SP, 10), 104], // 9♠ 10♠ JOKER
+  [c(HE, 4), c(DI, 4), c(CL, 4)], // terc of 4s
+];
 const turnA = await A.evaluate(() => window.__otlapos.state.srv.turn === window.__otlapos.state.srv.you);
 const mover = turnA ? A : B;
 const setHand = (h) => (turnA ? [h, null] : [null, h]);
 // 5 6 7 of diamonds in hand -> must play
 await debugSet(mover, { turn: turnA ? 0 : 1, opened: [true, true], table: tbl, hands: setHand([c(DI, 5), c(DI, 6), c(DI, 7), c(CL, 13), c(HE, 1)]) });
-await waitState(mover, () => window.__otlapos.state.srv.hand.length === 5 && window.__otlapos.state.draft && window.__otlapos.state.srv.table[1].length === 3);
+await waitState(mover, () => window.__otlapos.state.srv.hand.length === 5 && window.__otlapos.state.draft && window.__otlapos.state.srv.table.length === 2);
 await mover.click('#drawBtn');
 await mover.waitForSelector('.card.hint');
 assert.match(await mover.textContent('#status'), /terc or row|tercet/i);

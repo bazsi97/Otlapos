@@ -15,7 +15,7 @@ const STR = {
     done: 'Done ✔', draw: 'Draw', reset: 'Reset turn', sortSuit: 'Sort: suit', sortRank: 'Sort: number',
     rematch: 'Play again', viewTable: 'View table', waitingFor: 'Waiting for {n}…',
     youWon: 'You won! 🎉', someoneWon: '{n} won', winSub: 'First to run out of cards.',
-    terc: 'terc', row: 'row', opened: 'opened', cards: 'cards', deck: 'deck',
+    terc: 'terc', row: 'row', opened: 'opened', cards: 'cards', card: 'card', deck: 'deck',
     yourTurn: 'Your turn', turnOf: '{n}’s turn', theirDraft: '{n} is arranging the table…',
     hintOpen: 'Make a terc or row purely from your own cards first — then the whole table is yours. Or draw.',
     hintPlay: 'Drag cards onto the table (or tap a card, then a slot). Play something, or draw.',
@@ -39,7 +39,7 @@ const STR = {
     done: 'Kész ✔', draw: 'Húzás', reset: 'Kör visszaállítása', sortSuit: 'Rendezés: szín', sortRank: 'Rendezés: szám',
     rematch: 'Újra', viewTable: 'Asztal megtekintése', waitingFor: 'Várakozás: {n}…',
     youWon: 'Nyertél! 🎉', someoneWon: '{n} nyert', winSub: 'Elsőként fogyott el a lapja.',
-    terc: 'terc', row: 'sor', opened: 'kinyitott', cards: 'lap', deck: 'pakli',
+    terc: 'terc', row: 'sor', opened: 'kinyitott', cards: 'lap', card: 'lap', deck: 'pakli',
     yourTurn: 'Te jössz', turnOf: '{n} jön', theirDraft: '{n} rendezgeti az asztalt…',
     hintOpen: 'Előbb rakj le egy tercet vagy sort csak a saját lapjaidból — utána az egész asztal a tiéd. Vagy húzz.',
     hintPlay: 'Húzd a lapokat az asztalra (vagy koppints egy lapra, majd egy mezőre). Rakj le valamit, vagy húzz.',
@@ -86,6 +86,14 @@ const S = {
 try { S.session = JSON.parse(store.get('session') || 'null'); } catch { S.session = null; }
 
 const clone = (tb) => tb.map((c) => c.slice());
+// The board always shows the melds plus exactly one empty slot at the end.
+const normalize = (tb) => {
+  const a = clone(tb);
+  while (a.length && a[a.length - 1].length === 0) a.pop();
+  a.push([]);
+  return a;
+};
+const compact = (tb) => tb.filter((c) => c.length > 0);
 const myTurn = () => !!S.srv && S.srv.phase === 'playing' && S.srv.turn === S.srv.you && !!S.draft;
 const oldIds = () => new Set(S.srv.table.flat());
 const me = () => S.srv.players[S.srv.you];
@@ -200,7 +208,7 @@ function applyState(s) {
   const mine = playing && s.turn === s.you;
   if (mine) {
     if (S.draftTurn !== s.turnNo || !S.draft) {
-      S.draft = clone(s.table);
+      S.draft = normalize(s.table);
       S.draftTurn = s.turnNo;
       S.sel.clear();
       S.hint = new Set();
@@ -234,7 +242,7 @@ function flash(text, cls = 'warn', ms = 4000) {
 // ---------------------------------------------------------------------------
 function resetDraft() {
   if (!S.srv || !S.draft) return;
-  S.draft = clone(S.srv.table);
+  S.draft = normalize(S.srv.table);
   S.sel.clear();
   sendDraft();
 }
@@ -252,6 +260,7 @@ function moveCards(ids, dest) {
   const moving = new Set(ids);
   S.draft = S.draft.map((c) => c.filter((id) => !moving.has(id)));
   if (dest !== 'hand') S.draft[dest] = [...S.draft[dest], ...ids];
+  S.draft = normalize(S.draft);
   S.sel.clear();
   S.hint = new Set();
   S.flash = null;
@@ -327,12 +336,11 @@ function render() {
   const last = s.log[s.log.length - 1];
   const nameOf = (i) => s.players[i]?.name ?? '';
   const logText = !last ? '' : t({ start: 'logStart', played: 'logPlayed', drew: 'logDrew', won: 'logWon' }[last.k], { n: nameOf(last.p), c: last.n });
-  $('#oppInfo').textContent = `${o.handCount} ${t('cards')} · ${t('deck')} ${s.deckCount}${logText ? ' · ' + logText : ''}`;
+  $('#oppInfo').textContent = `${o.handCount} ${t(o.handCount === 1 ? 'card' : 'cards')} · ${t('deck')} ${s.deckCount}${logText ? ' · ' + logText : ''}`;
 
   // board
-  const table = mine ? S.draft : s.draft ?? s.table;
+  const table = normalize(mine ? S.draft : s.draft ?? s.table);
   const board = $('#board');
-  board.style.setProperty('--cols', s.cols);
   board.classList.toggle('readonly', !mine);
   const un = mine ? unlocked() : true;
   const fresh = new Set(s.fresh); // glow on whatever was laid down last, so you can see what changed
@@ -361,10 +369,10 @@ function render() {
         extra: [S.sel.has(sl.id) ? 'sel' : '', fresh.has(sl.id) ? 'fresh' : '', locked ? 'lockedcard' : ''].join(' '),
       })).join('') + '</div>';
     }
-    html += `<div class="${cls}" data-drop="cell" data-cell="${i}"><span class="num">${i + 1}</span>${tag ? `<span class="tag">${tag}</span>` : ''}${inner}</div>`;
+    html += `<div class="${cls}" data-drop="cell" data-cell="${i}">${tag ? `<span class="tag">${tag}</span>` : ''}${inner}</div>`;
   }
   board.innerHTML = html;
-  layoutFans();
+  layoutBoard(table.length);
 
   // hand
   const placed = new Set(mine ? placedIds() : []);
@@ -400,7 +408,7 @@ function renderStatus(mine, placedCount) {
 
   $('#doneBtn').disabled = !(mine && canDone);
   $('#drawBtn').disabled = !(mine && placedCount === 0);
-  const changed = mine && JSON.stringify(S.draft) !== JSON.stringify(s.table);
+  const changed = mine && JSON.stringify(compact(S.draft)) !== JSON.stringify(s.table);
   $('#resetBtn').disabled = !changed;
 }
 
@@ -419,8 +427,33 @@ function renderOverlay() {
 }
 
 // Fan out the cards of each cell so long melds squeeze to fit.
+// Pick the column count that keeps cards as big as possible for n slots: starts big with a single
+// slot and shrinks gradually as the table fills up. Scrolls vertically only below the minimum size.
+const CW_MAX = 84, CW_MIN = 24, GAP = 8, CELL_PAD = 28;
+function layoutBoard(n = S.boardN || 1) {
+  S.boardN = n;
+  const wrap = $('#boardWrap');
+  const W = wrap.clientWidth - 20;
+  const H = wrap.clientHeight - 8;
+  if (W <= 0 || H <= 0) return;
+  let best = null;
+  for (let c = 1; c <= n; c++) {
+    const r = Math.ceil(n / c);
+    const cellW = (W - GAP * (c - 1)) / c;
+    const cellH = (H - GAP * (r - 1)) / r;
+    const cw = Math.min(CW_MAX, (cellW - 12) / 2.56, (cellH - CELL_PAD) / 1.45);
+    if (!best || cw > best.cw + 0.01 || (Math.abs(cw - best.cw) <= 0.01 && c > best.c)) best = { c, cw };
+  }
+  const cw = Math.max(CW_MIN, Math.floor(best.cw));
+  const board = $('#board');
+  board.style.setProperty('--cols', best.c);
+  board.style.setProperty('--cw', cw + 'px');
+  board.style.setProperty('--ch', Math.round(cw * 1.45) + 'px');
+  layoutFans();
+}
+
 function layoutFans() {
-  const cw = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cw')) || 36;
+  const cw = parseFloat(getComputedStyle($('#board')).getPropertyValue('--cw')) || 36;
   document.querySelectorAll('#board .fan').forEach((fan) => {
     const n = Number(fan.style.getPropertyValue('--n')) || 1;
     const avail = fan.parentElement.clientWidth - 12 - cw;
@@ -559,7 +592,7 @@ $('#codeInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#
 const urlRoom = new URLSearchParams(location.search).get('room');
 if (urlRoom) $('#codeInput').value = urlRoom.toUpperCase().slice(0, 4);
 
-window.addEventListener('resize', layoutFans);
+new ResizeObserver(() => layoutBoard()).observe($('#boardWrap'));
 
 renderChrome();
 showScreen();

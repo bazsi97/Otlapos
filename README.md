@@ -31,7 +31,9 @@ draw ends the turn.
 
 ## Using the board
 
-* The 7×7 grid is the table; each slot holds one terc/row. Green outline = valid, amber = not (yet) valid.
+* The table starts with one big slot. Each slot holds one terc/row; as soon as one is filled a new empty slot appears,
+  and the slots shrink gradually to fit. Green outline = valid, amber = not (yet) valid. If you empty a slot during
+  your turn it stays put until you press Done, then the gap closes.
 * **Drag** cards between your hand and the slots (or between slots), or **tap** cards to select (several at once)
   and then tap a slot. Jokers show what they currently stand for (e.g. `=7♥`).
 * **Reset turn** puts everything back as it was when your turn started. **Done** is only enabled when the

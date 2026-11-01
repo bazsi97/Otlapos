@@ -11,12 +11,11 @@
   --ch: calc(var(--cw) * 1.45);
   --hw: clamp(48px, min(4.6vw, 8vh), 70px);   /* hand card */
   --hh: calc(var(--hw) * 1.45);
-  --cellmin: 104px;
 }
 @media (max-width: 760px) {
   .brand { display: none; }
   .code { margin-left: 0; }
-  :root { --cw: 30px; --hw: 46px; --cellmin: 92px; }
+  :root { --cw: 30px; --hw: 46px; }
 }
 
 * { box-sizing: border-box; }
@@ -88,14 +87,13 @@ body.ingame #langBtn { display: none; }
 
 #boardWrap { flex: 1; min-height: 0; overflow: auto; padding: 0 10px 8px; }
 #board {
-  display: grid; gap: 6px;
-  grid-template-columns: repeat(var(--cols, 7), minmax(var(--cellmin), 1fr));
-  min-width: calc(var(--cols, 7) * var(--cellmin) + (var(--cols, 7) - 1) * 6px);
+  display: grid; gap: 8px; align-content: start;
+  grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr));
 }
 .cell {
-  position: relative; height: calc(var(--ch) + 22px);
+  position: relative; height: calc(var(--ch) + 28px);
   border: 1.5px dashed rgba(255,255,255,.16); border-radius: 10px;
-  background: rgba(0,0,0,.14); padding: 14px 6px 4px;
+  background: rgba(0,0,0,.14); padding: 18px 6px 4px;
   transition: border-color .12s, background .12s;
 }
 .cell.has { border-style: solid; background: rgba(0,0,0,.24); border-color: rgba(255,255,255,.25); }
@@ -103,9 +101,8 @@ body.ingame #langBtn { display: none; }
 .cell.invalid { border-color: var(--warn); background: rgba(255,179,71,.08); }
 .cell.over { outline: 2px solid var(--gold); background: rgba(242,193,78,.12); }
 .cell.locked { opacity: .78; }
-.cell .tag { position: absolute; top: 1px; right: 7px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--good); opacity: .9; }
+.cell .tag { position: absolute; top: 2px; right: 8px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--good); opacity: .9; }
 .cell.invalid .tag { color: var(--warn); }
-.cell .num { position: absolute; top: 1px; left: 7px; font-size: 9px; color: rgba(255,255,255,.28); }
 .readonly .cell { cursor: default; }
 
 .fan { position: relative; height: var(--ch); }

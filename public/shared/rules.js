@@ -12,6 +12,7 @@ export const TOTAL_CARDS = 110;
 export const HAND_SIZE = 5;
 export const MAX_TERC = 4;
 export const MAX_RUN = 13;
+export const MAX_SLOTS = 120; // sanity cap on table slots (110 cards / 3 per meld is the real limit)
 
 export function cardInfo(id) {
   if (id >= NATURALS) return { id, joker: true };
@@ -107,9 +108,9 @@ export function analyzeMeld(ids) {
 const fail = (code, extra) => ({ ok: false, code, ...extra });
 
 /**
- * oldTable : array of cells (arrays of ids) as it was when the turn started
+ * oldTable : array of melds (arrays of ids) as it was when the turn started
  * hand     : ids in the player's hand when the turn started
- * proposed : array of cells the player wants to end the turn with
+ * proposed : array of melds the player wants to end the turn with (empty slots are ignored)
  * opened   : has the player already put down a meld in an earlier turn?
  *
  * A turn is legal when:
@@ -121,8 +122,8 @@ const fail = (code, extra) => ({ ok: false, code, ...extra });
 export function checkTurn({ oldTable, hand, proposed, opened }) {
   if (
     !Array.isArray(proposed) ||
-    proposed.length !== oldTable.length ||
-    !proposed.every((c) => Array.isArray(c))
+    proposed.length > MAX_SLOTS ||
+    !proposed.every((c) => Array.isArray(c) && c.length <= TOTAL_CARDS)
   ) {
     return fail('shape');
   }

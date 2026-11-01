@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newRoom, addPlayer, startRound, playDone, playDraw, setDraft, viewFor, emptyTable } from '../server/game.js';
+import { newRoom, addPlayer, startRound, playDone, playDraw, setDraft, viewFor } from '../server/game.js';
 
 const c = (suit, rank, copy = 0) => copy * 52 + suit * 13 + (rank - 1);
 const [SP, HE, DI, CL] = [0, 1, 2, 3];
@@ -28,21 +28,19 @@ test('deal: 5 cards each from a 110-card deck, opponent hand hidden', () => {
 test('done: opening meld, hand shrinks, turn passes, wrong player refused', () => {
   const r = room();
   r.players[0].hand = [c(HE, 7), c(SP, 7), c(DI, 7), c(CL, 5), c(DI, 13)];
-  const proposed = emptyTable();
-  proposed[3] = [c(HE, 7), c(SP, 7), c(DI, 7)];
+  const proposed = [[], [c(HE, 7), c(SP, 7), c(DI, 7)], []]; // empty slots are ignored
   assert.equal(playDone(r, 1, proposed).code, 'notYourTurn');
   assert.deepEqual(playDone(r, 0, proposed), { ok: true });
   assert.equal(r.players[0].hand.length, 2);
   assert.equal(r.players[0].opened, true);
   assert.equal(r.turn, 1);
-  assert.deepEqual(r.table[3], [c(HE, 7), c(SP, 7), c(DI, 7)]);
+  assert.deepEqual(r.table, [[c(HE, 7), c(SP, 7), c(DI, 7)]], 'table is stored without empty slots');
 });
 
 test('done: cannot cheat with cards you do not hold or by pulling table cards back', () => {
   const r = room();
   r.players[0].hand = [c(HE, 7), c(SP, 7), c(CL, 5), c(DI, 13), c(DI, 2)];
-  const p = emptyTable();
-  p[0] = [c(HE, 7), c(SP, 7), c(DI, 7)]; // 7♦ is not in hand
+  const p = [[c(HE, 7), c(SP, 7), c(DI, 7)]]; // 7♦ is not in hand
   assert.equal(playDone(r, 0, p).code, 'unknownCard');
   assert.equal(r.players[0].hand.length, 5);
 });
@@ -71,7 +69,7 @@ test('draw: a joker never forces you to play', () => {
 
 test('draw: being able to extend / rearrange the table never forces you to play', () => {
   const r = room({ strict: true });
-  r.table[0] = [c(HE, 5), c(HE, 6), c(HE, 7)];
+  r.table = [[c(HE, 5), c(HE, 6), c(HE, 7)]];
   r.players[0].opened = true;
   r.players[0].hand = [c(HE, 8), c(SP, 1), c(DI, 2), c(CL, 9), c(SP, 12)]; // 8♥ would extend the row
   assert.deepEqual(playDraw(r, 0), { ok: true });
@@ -87,8 +85,7 @@ test('going out wins the round, counts the win and alternates the starter', () =
   const r = room();
   r.startIdx = 0;
   r.players[0].hand = [c(HE, 7), c(HE, 8), c(HE, 9)];
-  const p = emptyTable();
-  p[0] = [c(HE, 7), c(HE, 8), c(HE, 9)];
+  const p = [[c(HE, 7), c(HE, 8), c(HE, 9)]];
   playDone(r, 0, p);
   assert.equal(r.phase, 'over');
   assert.equal(r.winner, 0);
@@ -101,7 +98,7 @@ test('going out wins the round, counts the win and alternates the starter', () =
 
 test('drafts are only accepted from the player whose turn it is', () => {
   const r = room();
-  const t = emptyTable();
+  const t = [[]];
   assert.equal(setDraft(r, 1, t), false);
   assert.equal(setDraft(r, 0, t), true);
   assert.ok(viewFor(r, 1).draft, 'opponent sees the draft');

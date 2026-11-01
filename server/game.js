@@ -1,8 +1,5 @@
 // Game state + turn logic for one room. No networking in here.
-import { HAND_SIZE, checkTurn, canPlay, cardInfo, makeDeck, shuffle } from '../public/shared/rules.js';
-
-export const ROWS = 7;
-export const COLS = 7;
+import { HAND_SIZE, MAX_SLOTS, checkTurn, canPlay, cardInfo, makeDeck, shuffle } from '../public/shared/rules.js';
 
 export function newRoom(code, { strict = true } = {}) {
   return {
@@ -24,7 +21,8 @@ export function newRoom(code, { strict = true } = {}) {
   };
 }
 
-export const emptyTable = () => Array.from({ length: ROWS * COLS }, () => []);
+export const emptyTable = () => [];
+const compact = (table) => table.filter((c) => c.length > 0);
 
 export function addPlayer(room, name, token) {
   const p = { name, token, hand: [], opened: false, wins: 0, ws: null };
@@ -71,7 +69,7 @@ export function playDone(room, idx, proposed) {
   const placed = new Set(res.placed);
   p.hand = p.hand.filter((id) => !placed.has(id));
   p.opened = true;
-  room.table = proposed.map((cell) => cell.slice());
+  room.table = compact(proposed).map((cell) => cell.slice());
   room.fresh = res.placed;
   pushLog(room, { k: 'played', p: idx, n: res.placed.length });
 
@@ -113,7 +111,7 @@ export function setDraft(room, idx, table) {
   if (room.phase !== 'playing' || room.turn !== idx) return false;
   if (
     !Array.isArray(table) ||
-    table.length !== room.table.length ||
+    table.length > MAX_SLOTS ||
     !table.every((c) => Array.isArray(c) && c.length <= 20 && c.every(Number.isInteger))
   ) {
     return false;
@@ -131,9 +129,7 @@ export function viewFor(room, idx) {
     strict: room.strict,
     turn: room.turn,
     turnNo: room.turnNo,
-    rows: ROWS,
-    cols: COLS,
-    table: room.table,
+    table: compact(room.table),
     draft: room.turn !== idx ? room.draft : null,
     deckCount: room.deck.length,
     fresh: room.fresh,
