@@ -21,6 +21,11 @@ export function newRoom(code, { strict = true } = {}) {
   };
 }
 
+// Cards drawn since the player last laid something down are highlighted in their hand,
+// for at most NEW_CARD_ROUNDS of their own turns after the draw.
+const NEW_CARD_ROUNDS = 2;
+const newEntries = (p) => (p.newCards ?? []).map((n) => (typeof n === 'number' ? { id: n, age: 0 } : n));
+
 export const emptyTable = () => [];
 const compact = (table) => table.filter((c) => c.length > 0);
 
@@ -106,7 +111,13 @@ export function playDraw(room, idx) {
   if (room.deck.length > 0) {
     const card = room.deck.pop();
     p.hand.push(card);
-    p.newCards = [...(p.newCards ?? []), card];
+    // this turn ends: older highlights age by one, then the fresh card joins at age 0
+    p.newCards = [
+      ...newEntries(p).map((n) => ({ id: n.id, age: n.age + 1 })).filter((n) => n.age < NEW_CARD_ROUNDS),
+      { id: card, age: 0 },
+    ];
+  } else {
+    p.newCards = newEntries(p).map((n) => ({ id: n.id, age: n.age + 1 })).filter((n) => n.age < NEW_CARD_ROUNDS);
   }
   pushLog(room, { k: 'drew', p: idx });
   endTurn(room);
@@ -143,7 +154,7 @@ export function viewFor(room, idx) {
     rematch: room.rematch,
     log: room.log.slice(-6),
     hand: room.players[idx]?.hand ?? [],
-    drawn: room.players[idx]?.newCards ?? [], // cards drawn since you last played, highlighted in your hand
+    drawn: room.players[idx] ? newEntries(room.players[idx]).map((n) => n.id) : [], // highlighted in your hand
     players: room.players.map((p) => ({
       name: p.name,
       handCount: p.hand.length,

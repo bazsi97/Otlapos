@@ -117,3 +117,20 @@ test('drawn cards are flagged for the drawer until they lay something down', () 
   assert.ok(playDone(r, 0, p).ok);
   assert.deepEqual(viewFor(r, 0).drawn, []);
 });
+
+test('new-card highlight lasts at most two of your own turns, or until you play', () => {
+  const r = room({ strict: false });
+  const junk = () => [c(HE, 7), c(HE, 9), c(CL, 5), c(DI, 13), c(DI, 2)];
+  r.players[0].hand = junk();
+  playDraw(r, 0);
+  const first = r.players[0].hand[5];
+  assert.deepEqual(viewFor(r, 0).drawn, [first]);
+  r.turn = 0; // opponent's turn skipped
+  playDraw(r, 0);
+  const second = r.players[0].hand[6];
+  assert.deepEqual(viewFor(r, 0).drawn, [first, second], 'first card is still highlighted one turn later');
+  r.turn = 0;
+  playDraw(r, 0);
+  const third = r.players[0].hand[7];
+  assert.deepEqual(viewFor(r, 0).drawn, [second, third], 'first card has aged out after two turns');
+});

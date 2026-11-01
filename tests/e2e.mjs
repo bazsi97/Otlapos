@@ -90,8 +90,23 @@ assert.equal(await B.locator('#hand .card').count(), 6);
 assert.equal(await B.locator('#hand .card.drawn').count(), 1, 'the drawn card is highlighted');
 console.log('draw OK');
 
+// ---------- scenario 2b: undo goes back one move at a time ----------
+await debugSet(A, { turn: 0, opened: [true, true], table: [[c(HE, 5), c(HE, 6), c(HE, 7)]], hands: [[c(HE, 8), c(HE, 9), c(CL, 2), c(CL, 3), c(CL, 4)], null] });
+await waitState(A, () => window.__otlapos.state.srv.turn === 0 && window.__otlapos.state.srv.table.length === 1 && window.__otlapos.state.draft);
+assert.equal(await A.locator('#undoBtn').isDisabled(), true);
+await dragCard(A, c(HE, 8), 0);
+await dragCard(A, c(HE, 9), 0);
+await A.waitForFunction(() => document.querySelectorAll('#board .cell[data-cell="0"] .card').length === 5);
+await A.click('#undoBtn');
+await A.waitForFunction(() => document.querySelectorAll('#board .cell[data-cell="0"] .card').length === 4);
+assert.equal(await A.locator('#hand .card').count(), 4, 'only the last move was undone');
+await A.click('#undoBtn');
+await A.waitForFunction(() => document.querySelectorAll('#board .cell[data-cell="0"] .card').length === 3);
+assert.equal(await A.locator('#undoBtn').isDisabled(), true, 'nothing left to undo');
+console.log('undo OK');
+
 // ---------- scenario 3: A is opened; tap-select + tap-slot to extend with 7♣ and win ----------
-await debugSet(A, { turn: 0, hands: [[c(CL, 7)], null] });
+await debugSet(A, { turn: 0, table: [[c(HE, 7), c(SP, 7), c(DI, 7)]], hands: [[c(CL, 7)], null] });
 await waitState(A, () => window.__otlapos.state.srv.hand.length === 1 && window.__otlapos.state.draft);
 await A.locator(`#hand .card[data-id="${c(CL, 7)}"]`).click();
 assert.equal(await A.locator('.card.sel').count(), 1);

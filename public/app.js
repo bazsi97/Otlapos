@@ -12,7 +12,7 @@ const STR = {
     strict: 'Forced play (you can’t draw while you hold a terc or row in your hand)',
     waitTitle: 'Waiting for your opponent…', waitHelp: 'Send them this link, or the room code:',
     copy: 'Copy', copied: 'Copied!', leave: 'Leave', reconnecting: 'Reconnecting…',
-    done: 'Done ✔', draw: 'Draw', reset: 'Reset turn', sortSuit: 'Sort: suit', sortRank: 'Sort: number',
+    done: 'Done ✔', draw: 'Draw', undo: '↶ Undo', reset: 'Reset turn', sortSuit: 'Sort: suit', sortRank: 'Sort: number',
     rematch: 'Play again', viewTable: 'View table', waitingFor: 'Waiting for {n}…',
     youWon: 'You won! 🎉', someoneWon: '{n} won', winSub: 'First to run out of cards.',
     terc: 'terc', row: 'row', opened: 'opened', cards: 'cards', card: 'card', deck: 'deck',
@@ -36,7 +36,7 @@ const STR = {
     strict: 'Kötelező lerakás (nem húzhatsz, ha tercet vagy sort tartasz a kezedben)',
     waitTitle: 'Várakozás az ellenfélre…', waitHelp: 'Küldd el neki ezt a linket, vagy a szobakódot:',
     copy: 'Másolás', copied: 'Másolva!', leave: 'Kilépés', reconnecting: 'Újracsatlakozás…',
-    done: 'Kész ✔', draw: 'Húzás', reset: 'Kör visszaállítása', sortSuit: 'Rendezés: szín', sortRank: 'Rendezés: szám',
+    done: 'Kész ✔', draw: 'Húzás', undo: '↶ Visszavonás', reset: 'Kör visszaállítása', sortSuit: 'Rendezés: szín', sortRank: 'Rendezés: szám',
     rematch: 'Újra', viewTable: 'Asztal megtekintése', waitingFor: 'Várakozás: {n}…',
     youWon: 'Nyertél! 🎉', someoneWon: '{n} nyert', winSub: 'Elsőként fogyott el a lapja.',
     terc: 'terc', row: 'sor', opened: 'kinyitott', cards: 'lap', card: 'lap', deck: 'pakli',
@@ -76,6 +76,7 @@ const S = {
   session: null, // { code, token, idx }
   srv: null,
   draft: null, // my working copy of the table during my turn
+  undo: [], // earlier drafts of this turn, one entry per move
   draftTurn: null,
   sel: new Set(),
   sort: store.get('sort') || 'suit',
@@ -176,7 +177,7 @@ function handle(m) {
         S.hint = new Set(m.hint || []);
         setTimeout(() => { S.hint = new Set(); render(); }, 7000);
       }
-      if (['unknownCard', 'shape', 'dupCard'].includes(m.code) && S.srv) resetDraft();
+      if (['unknownCard', 'shape', 'dupCard'].includes(m.code) && S.srv) { S.undo = []; resetDraft(); }
       flash(t('err_' + m.code), 'bad', 6000);
       render();
       break;
@@ -210,12 +211,14 @@ function applyState(s) {
     if (S.draftTurn !== s.turnNo || !S.draft) {
       S.draft = normalize(s.table);
       S.draftTurn = s.turnNo;
+      S.undo = [];
       S.sel.clear();
       S.hint = new Set();
     }
   } else {
     S.draft = null;
     S.draftTurn = null;
+    S.undo = [];
     S.sel.clear();
   }
   if (prev && prev.phase === 'over' && s.phase === 'playing') S.overlayHidden = false;
@@ -240,6 +243,21 @@ function flash(text, cls = 'warn', ms = 4000) {
 // ---------------------------------------------------------------------------
 // moving cards around (all local until "Done")
 // ---------------------------------------------------------------------------
+function pushUndo() {
+  S.undo.push(clone(S.draft));
+  if (S.undo.length > 200) S.undo.shift();
+}
+
+function undo() {
+  if (!myTurn() || !S.undo.length) return;
+  S.draft = S.undo.pop();
+  S.sel.clear();
+  S.hint = new Set();
+  S.flash = null;
+  sendDraft();
+  render();
+}
+
 function resetDraft() {
   if (!S.srv || !S.draft) return;
   S.draft = normalize(S.srv.table);
@@ -258,9 +276,12 @@ function moveCards(ids, dest) {
     return flash(t('err_needOpening'), 'warn');
   }
   const moving = new Set(ids);
-  S.draft = S.draft.map((c) => c.filter((id) => !moving.has(id)));
-  if (dest !== 'hand') S.draft[dest] = [...S.draft[dest], ...ids];
-  S.draft = normalize(S.draft);
+  const before = S.draft;
+  let next = before.map((c) => c.filter((id) => !moving.has(id)));
+  if (dest !== 'hand') next[dest] = [...next[dest], ...ids];
+  next = normalize(next);
+  if (JSON.stringify(next) !== JSON.stringify(before)) pushUndo(); // dropping a card where it already is isn't a step
+  S.draft = next;
   S.sel.clear();
   S.hint = new Set();
   S.flash = null;
@@ -411,6 +432,7 @@ function renderStatus(mine, placedCount) {
   $('#drawBtn').disabled = !(mine && placedCount === 0);
   const changed = mine && JSON.stringify(compact(S.draft)) !== JSON.stringify(s.table);
   $('#resetBtn').disabled = !changed;
+  $('#undoBtn').disabled = !(mine && S.undo.length);
 }
 
 function renderOverlay() {
@@ -551,7 +573,11 @@ document.addEventListener('click', (e) => {
 // ---------------------------------------------------------------------------
 $('#doneBtn').onclick = () => { if (myTurn()) send({ t: 'done', table: S.draft }); };
 $('#drawBtn').onclick = () => { if (myTurn()) { resetDraft(); send({ t: 'draw' }); } };
-$('#resetBtn').onclick = () => { resetDraft(); render(); };
+$('#resetBtn').onclick = () => { if (myTurn()) { pushUndo(); resetDraft(); render(); } }; // reset itself can be undone
+$('#undoBtn').onclick = undo;
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && !e.target.closest?.('input')) { e.preventDefault(); undo(); }
+});
 $('#sortBtn').onclick = () => { S.sort = S.sort === 'suit' ? 'rank' : 'suit'; store.set('sort', S.sort); render(); };
 $('#rematchBtn').onclick = () => send({ t: 'rematch' });
 $('#overlayCloseBtn').onclick = () => { S.overlayHidden = true; render(); };
