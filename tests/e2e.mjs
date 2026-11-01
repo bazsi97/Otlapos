@@ -65,6 +65,7 @@ await debugSet(A, {
   hands: [[c(HE, 7), c(SP, 7), c(DI, 7), c(CL, 5), c(DI, 13)], [c(HE, 2), c(SP, 9), c(DI, 12), c(CL, 1), c(HE, 4)]],
 });
 await waitState(A, () => window.__otlapos.state.srv.turn === 0 && window.__otlapos.state.srv.hand.length === 5 && window.__otlapos.state.draft);
+await A.waitForSelector('#turnBanner', { state: 'hidden' }); // let the start-of-turn banner fade
 assert.equal(await A.locator('#doneBtn').isDisabled(), true);
 for (const id of [c(HE, 7), c(SP, 7)]) await dragCard(A, id, 0);
 assert.equal(await A.locator('#doneBtn').isDisabled(), true, 'two cards are not a meld yet');
@@ -78,6 +79,9 @@ await A.waitForFunction(() => document.querySelectorAll('#board .cell').length =
 await A.screenshot({ path: `${SHOTS}/shot-1-terc-ready.png` });
 await A.click('#doneBtn');
 await waitState(B, () => window.__otlapos.state.srv.turn === 1);
+await B.waitForSelector('#turnBanner:not(.hidden)');
+assert.match(await B.textContent('#turnBanner'), /Your turn!/);
+assert.equal(await A.locator('#turnBanner:not(.hidden)').count(), 0, 'the player who just moved gets no banner');
 assert.equal(await A.locator('#hand .card').count(), 2);
 assert.equal(await B.locator('#board .cell[data-cell="0"] .card').count(), 3);
 assert.equal(await B.locator('#board .cell[data-cell="0"] .card.fresh').count(), 3, 'new cards glow for opponent');
@@ -88,6 +92,7 @@ await B.click('#drawBtn');
 await waitState(B, () => window.__otlapos.state.srv.turn === 0 && window.__otlapos.state.srv.hand.length === 6);
 assert.equal(await B.locator('#hand .card').count(), 6);
 assert.equal(await B.locator('#hand .card.drawn').count(), 1, 'the drawn card is highlighted');
+await A.waitForSelector('#turnBanner:not(.hidden)'); // B drew -> A is told it's their turn
 console.log('draw OK');
 
 // ---------- scenario 2b: undo goes back one move at a time ----------

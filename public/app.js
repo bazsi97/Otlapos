@@ -16,7 +16,7 @@ const STR = {
     rematch: 'Play again', viewTable: 'View table', waitingFor: 'Waiting for {n}…',
     youWon: 'You won! 🎉', someoneWon: '{n} won', winSub: 'First to run out of cards.',
     terc: 'terc', row: 'row', opened: 'opened', cards: 'cards', card: 'card', deck: 'deck',
-    yourTurn: 'Your turn', turnOf: '{n}’s turn', theirDraft: '{n} is arranging the table…',
+    yourTurnBang: 'Your turn!', yourTurn: 'Your turn', turnOf: '{n}’s turn', theirDraft: '{n} is arranging the table…',
     hintOpen: 'Make a terc or row purely from your own cards first — then the whole table is yours. Or draw.',
     hintPlay: 'Drag cards onto the table (or tap a card, then a slot). Play something, or draw.',
     okDone: 'Everything checks out — press Done.',
@@ -40,7 +40,7 @@ const STR = {
     rematch: 'Újra', viewTable: 'Asztal megtekintése', waitingFor: 'Várakozás: {n}…',
     youWon: 'Nyertél! 🎉', someoneWon: '{n} nyert', winSub: 'Elsőként fogyott el a lapja.',
     terc: 'terc', row: 'sor', opened: 'kinyitott', cards: 'lap', card: 'lap', deck: 'pakli',
-    yourTurn: 'Te jössz', turnOf: '{n} jön', theirDraft: '{n} rendezgeti az asztalt…',
+    yourTurnBang: 'Te jössz!', yourTurn: 'Te jössz', turnOf: '{n} jön', theirDraft: '{n} rendezgeti az asztalt…',
     hintOpen: 'Előbb rakj le egy tercet vagy sort csak a saját lapjaidból — utána az egész asztal a tiéd. Vagy húzz.',
     hintPlay: 'Húzd a lapokat az asztalra (vagy koppints egy lapra, majd egy mezőre). Rakj le valamit, vagy húzz.',
     okDone: 'Minden rendben — nyomd meg a Kész gombot.',
@@ -201,9 +201,28 @@ function handle(m) {
   }
 }
 
+// "Your turn!" pop-up when the turn passes to me (opponent drew or pressed Done, or a new game starts).
+let bannerTimer = null;
+function announceTurn() {
+  const el = $('#turnBanner');
+  el.textContent = t('yourTurnBang');
+  el.classList.add('hidden');
+  void el.offsetWidth; // restart the animation
+  el.classList.remove('hidden');
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => el.classList.add('hidden'), 1950);
+  try { navigator.vibrate?.([120, 60, 120]); } catch { /* not supported */ }
+  if (document.hidden) document.title = `● ${t('yourTurnBang')} – Öt lapos römi`;
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) document.title = 'Öt lapos römi';
+});
+
 function applyState(s) {
   const prev = S.srv;
   S.srv = s;
+  const wasMine = !!prev && prev.phase === 'playing' && prev.turn === prev.you;
+  if (prev && s.phase === 'playing' && s.turn === s.you && !wasMine) announceTurn();
   S.session = { ...S.session, idx: s.you };
   const playing = s.phase === 'playing';
   const mine = playing && s.turn === s.you;

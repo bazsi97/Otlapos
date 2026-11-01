@@ -169,6 +169,20 @@ body.ingame #langBtn { display: none; }
   .info { margin-left: 0; width: 100%; }
 }
 
+.turnbanner {
+  position: fixed; left: 50%; top: 32%; z-index: 90; pointer-events: none;
+  transform: translate(-50%, -50%); padding: .5em 1.4em; border-radius: 999px;
+  background: var(--gold); color: #2b2100; font-weight: 800; font-size: clamp(26px, 6vw, 44px);
+  box-shadow: 0 10px 40px #000a; white-space: nowrap;
+  animation: banner 1.9s ease-out forwards;
+}
+@keyframes banner {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(.7); }
+  12% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  22% { transform: translate(-50%, -50%) scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -62%) scale(1); }
+}
 .overlay { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.6); display: grid; place-items: center; padding: 16px; }
 .overlay .panel { text-align: center; display: grid; gap: 10px; min-width: min(340px, 100%); background: #0c2f24; }
 .overlay h2 { font-size: 30px; }
